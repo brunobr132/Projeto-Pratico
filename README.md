@@ -9,4 +9,4 @@ exemplo "gcc main.c mapa.c player.c zumbi.c -o jogo.exe -lraylib -lwinmm -lgdi32
 
 # MAPA
 
- para trocar o mapa o  atalho e F1~F3 ou Ctrl+Shitf+1~3
+ para trocar o mapa o  atalho e F1-F3 ou Ctrl+Shitf+1-3
