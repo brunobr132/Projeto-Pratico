@@ -16,6 +16,8 @@
 #define HUD_HEIGHT 60
 
 float temporest = 120.0f;
+#define TEMPO_PORTAO_ABERTO 4.0f
+#define TEMPO_PORTAO_FECHADO 4.0f
 
 
 typedef enum GameScreen{
@@ -69,8 +71,10 @@ const char initialmapa[HEIGHT][WIDTH] = {
 };
 
 char mapa[HEIGHT][WIDTH];
+bool portoesAbertos = false;
+float inicioCicloPortoes = 0.0f;
 
-void drawmapa(char mapa[HEIGHT][WIDTH]);
+void drawmapa(char mapa[HEIGHT][WIDTH], bool portoesAbertos);
 void checarColisao(Vector2 pos, char mapa[HEIGHT][WIDTH], int *pontos, int *comeu, Sound sound);
 // void updatePosition(Vector2 *pos, DIRECAO *direction, DIRECAO *buffer_direction, char mapa[HEIGHT][WIDTH], char Char);
 // int avoidRotation(Vector2 *pos, DIRECAO *direction, DIRECAO *buffer_direction, char mapa[HEIGHT][WIDTH], char Char);
@@ -82,7 +86,24 @@ void desenharNivel(int mapaAtual);
 
 float SPEED = 2.0f;
 
-void drawmapa(char mapa[HEIGHT][WIDTH]) {
+void atualizarPortoesPorTempo(void) {
+    const float ciclo = TEMPO_PORTAO_ABERTO + TEMPO_PORTAO_FECHADO;
+    const float tempoNoCiclo = fmodf((float)(GetTime() - inicioCicloPortoes), ciclo);
+    portoesAbertos = tempoNoCiclo < TEMPO_PORTAO_ABERTO;
+}
+
+float tempoRestantePortoes(void) {
+    const float ciclo = TEMPO_PORTAO_ABERTO + TEMPO_PORTAO_FECHADO;
+    const float tempoNoCiclo = fmodf((float)(GetTime() - inicioCicloPortoes), ciclo);
+
+    if (portoesAbertos) {
+        return TEMPO_PORTAO_ABERTO - tempoNoCiclo;
+    }
+
+    return ciclo - tempoNoCiclo;
+}
+
+void drawmapa(char mapa[HEIGHT][WIDTH], bool portoesAbertos) {
     const Color fundo = {225, 229, 231, 255};
     const Color parede = {48, 69, 90, 255};
     const Color borda = {36, 55, 75, 255};
@@ -135,6 +156,10 @@ void drawmapa(char mapa[HEIGHT][WIDTH]) {
                     corMarcador = (Color){171, 126, 201, 255};
                     break;
                 case 'D':
+                    corMarcador = portoesAbertos
+                        ? (Color){70, 190, 90, 255}
+                        : (Color){255, 0, 0, 255};
+                    break;
                 case 'A':
                     corMarcador = (Color){112, 199, 186, 255};
                     break;
@@ -207,9 +232,9 @@ void desenharHUD(
              (int)(largura * 0.49f), y + 28, 9, textoSecundario);
 }
 int main(void){
-    Mapa *mapaCarregado = carregarMapa("mapa.txt");
-
-     if (!mapaCarregado) {
+    Mapa *mapaCarregado = carregarMapa("mapa1.txt");
+    
+    if (!mapaCarregado) {
         for (int i = 0; i < HEIGHT; i++) {
             for (int j = 0; j < WIDTH; j++) {
                 mapa[i][j] = initialmapa[i][j];
@@ -226,16 +251,71 @@ int main(void){
     
     InfoMapa infoMapa = processarMapa(mapa);
     
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "PAC - MAN");
+    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "RESIDENT EVIL");
     SetTargetFPS(60);
     InitAudioDevice();
+    inicioCicloPortoes = (float)GetTime();
 
     while(!WindowShouldClose()){
+        if (IsKeyPressed(KEY_F1) ||
+            (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyDown(KEY_LEFT_SHIFT) && IsKeyPressed(KEY_ONE))) {
+            Mapa *novoMapa = carregarMapa("mapa1.txt");
+            if (novoMapa) {
+                for (int i = 0; i < HEIGHT; i++) {
+                    for (int j = 0; j < WIDTH; j++) {
+                        mapa[i][j] = novoMapa->celulas[i][j];
+                    }
+                }
+                liberarMapa(novoMapa);
+                infoMapa = processarMapa(mapa);
+                inicioCicloPortoes = (float)GetTime();
+            }
+        }
+
+        if (IsKeyPressed(KEY_F2) ||
+            (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyDown(KEY_LEFT_SHIFT) && IsKeyPressed(KEY_TWO))) {
+            Mapa *novoMapa = carregarMapa("mapa2.txt");
+            if (novoMapa) {
+                for (int i = 0; i < HEIGHT; i++) {
+                    for (int j = 0; j < WIDTH; j++) {
+                        mapa[i][j] = novoMapa->celulas[i][j];
+                    }
+                }
+                liberarMapa(novoMapa);
+                infoMapa = processarMapa(mapa);
+                inicioCicloPortoes = (float)GetTime();
+            }
+        }
+        if (IsKeyPressed(KEY_F3) ||
+            (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyDown(KEY_LEFT_SHIFT) && IsKeyPressed(KEY_THREE))) {
+            Mapa *novoMapa = carregarMapa("mapa3.txt");
+            if (novoMapa) {
+                for (int i = 0; i < HEIGHT; i++) {
+                    for (int j = 0; j < WIDTH; j++) {
+                        mapa[i][j] = novoMapa->celulas[i][j];
+                    }
+                }
+                liberarMapa(novoMapa);
+                infoMapa = processarMapa(mapa);
+                inicioCicloPortoes = (float)GetTime();
+            }
+        }
+
+        atualizarPortoesPorTempo();
         BeginDrawing();
         ClearBackground(WHITE);
 
-        drawmapa(mapa);
+        drawmapa(mapa, portoesAbertos);
         desenharHUD(3, 0, 1, 4, 0, 6, "vazia", 0, 3, 0, 3);
+        DrawText(
+            TextFormat("PORTAO D: %s (%.1fs)",
+                       portoesAbertos ? "ABERTO" : "FECHADO",
+                       tempoRestantePortoes()),
+            10,
+            GetScreenHeight() - HUD_HEIGHT - 20,
+            12,
+            portoesAbertos ? GREEN : RED
+        );
 
         EndDrawing();
     }
