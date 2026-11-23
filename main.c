@@ -5,6 +5,8 @@
 // #include "Fantasma.h"
 // #include "menu2.h"
 #include "mapa.h" 
+#include "player.h"
+#include "zumbi.h"
 
 #define TILE 20
 #define WIDTH 40
@@ -255,6 +257,17 @@ int main(void){
     SetTargetFPS(60);
     InitAudioDevice();
     inicioCicloPortoes = (float)GetTime();
+    SetRandomSeed((unsigned int)GetTime());
+
+    Entregador player;
+    Kit *kits = NULL;
+    int totalKits = 0;
+    inicializarPlayer(&player, mapa, &kits, &totalKits);
+    int kitsPendentes = totalKits;
+    Zumbi *zumbis = NULL;
+int totalZumbis = 0;
+inicializarZumbis(&zumbis, &totalZumbis, mapa);
+bool gameOver = false;
 
     while(!WindowShouldClose()){
         if (IsKeyPressed(KEY_F1) ||
@@ -305,8 +318,33 @@ int main(void){
         BeginDrawing();
         ClearBackground(WHITE);
 
+    float dt = GetFrameTime();
+    if (!gameOver) {
+        atualizarMovimentoPlayer(&player, mapa, portoesAbertos, dt);
+        atualizarZumbis(zumbis, totalZumbis, mapa, portoesAbertos, player.pos_atual, dt);
+        gameOver = verificarColisaoZumbis(&player, kits, zumbis, totalZumbis);
+      if (!gameOver) {
+                interagirComMapa(&player, mapa, kits, totalKits, &kitsPendentes);
+            }
+    }
         drawmapa(mapa, portoesAbertos);
-        desenharHUD(3, 0, 1, 4, 0, 6, "vazia", 0, 3, 0, 3);
+        desenharPlayerEKits(&player, kits, totalKits, TILE, MAP_ORIGIN_X, MAP_ORIGIN_Y);
+        desenharZumbis(zumbis, totalZumbis, TILE, MAP_ORIGIN_X, MAP_ORIGIN_Y);
+
+        // Descobre o texto da carga atual para mostrar no HUD
+        char textoCarga[20] = "vazia";
+        if (player.topo >= 0) {
+        int idTopo = player.pilha[player.topo];
+        sprintf(textoCarga, "topo: %c", kits[idTopo].tipo);
+}
+
+        if (gameOver) {
+        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, (Color){0, 0, 0, 170});
+        DrawText("GAME OVER - Sem vidas!", SCREEN_WIDTH / 2 - 140, SCREEN_HEIGHT / 2 - 20, 24, RED);
+        DrawText("Pressione ESC para sair", SCREEN_WIDTH / 2 - 120, SCREEN_HEIGHT / 2 + 15, 16, RAYWHITE);
+    }
+        desenharHUD(player.vidas, player.pontos, 1, 4, 0, kitsPendentes, textoCarga, player.topo + 1, 3, portoesAbertos ? 4 : 0, 4);
+        
         DrawText(
             TextFormat("PORTAO D: %s (%.1fs)",
                        portoesAbertos ? "ABERTO" : "FECHADO",
@@ -316,7 +354,11 @@ int main(void){
             12,
             portoesAbertos ? GREEN : RED
         );
-
         EndDrawing();
     }
+    
+    liberarKits(kits);
+    liberarZumbis(zumbis);
+    CloseWindow();
+    return 0;
 }
