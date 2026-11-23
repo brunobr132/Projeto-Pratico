@@ -4,7 +4,7 @@
 // #include "pacman.h"
 // #include "Fantasma.h"
 // #include "menu2.h"
-#include "mapa.h" 
+#include "mapa.h"
 #include "player.h"
 #include "zumbi.h"
 
@@ -19,8 +19,7 @@
 #define TEMPO_PORTAO_ABERTO 4.0f
 #define TEMPO_PORTAO_FECHADO 4.0f
 
-
-typedef enum GameScreen{
+typedef enum GameScreen {
     INICIAL,
     MENU,
     DESCRICAO,
@@ -74,10 +73,15 @@ char mapa[HEIGHT][WIDTH];
 bool portoesAbertos = false;
 float inicioCicloPortoes = 0.0f;
 
+static const char *ARQUIVOS_FASES[] = {
+    "mapa1.txt",
+    "mapa2.txt",
+    "mapa3.txt"
+};
+#define TOTAL_FASES (int)(sizeof(ARQUIVOS_FASES) / sizeof(ARQUIVOS_FASES[0]))
+
 void drawmapa(char mapa[HEIGHT][WIDTH], bool portoesAbertos);
 void checarColisao(Vector2 pos, char mapa[HEIGHT][WIDTH], int *pontos, int *comeu, Sound sound);
-// void updatePosition(Vector2 *pos, DIRECAO *direction, DIRECAO *buffer_direction, char mapa[HEIGHT][WIDTH], char Char);
-// int avoidRotation(Vector2 *pos, DIRECAO *direction, DIRECAO *buffer_direction, char mapa[HEIGHT][WIDTH], char Char);
 void desenharPlacar(int pontos);
 void desenharVidas(int vidas);
 InfoMapa processarMapa(char mapa[HEIGHT][WIDTH]);
@@ -233,9 +237,66 @@ void desenharHUD(
              (int)(largura * 0.49f), y + 28, 9, textoSecundario);
 }
 
-int main(void){
-    Mapa *mapaCarregado = carregarMapa("mapa1.txt");
-    
+static void reiniciarEntidadesDoMapa(
+    Entregador *player,
+    Kit **kits,
+    int *totalKits,
+    int *kitsPendentes,
+    Zumbi **zumbis,
+    int *totalZumbis,
+    bool *gameOver,
+    bool *vitoriaFase,
+    bool *jogoConcluido,
+    float *tempoRestanteFase,
+    bool preservarProgresso
+) {
+    int vidasSalvas = player->vidas;
+    int pontosSalvos = player->pontos;
+
+    liberarKits(*kits);
+    *kits = NULL;
+    *totalKits = 0;
+
+    liberarZumbis(*zumbis);
+    *zumbis = NULL;
+    *totalZumbis = 0;
+
+    inicializarPlayer(player, mapa, kits, totalKits);
+    if (preservarProgresso) {
+        player->vidas = vidasSalvas;
+        player->pontos = pontosSalvos;
+    }
+
+    *kitsPendentes = *totalKits;
+    inicializarZumbis(zumbis, totalZumbis, mapa);
+
+    *gameOver = false;
+    *vitoriaFase = false;
+    *jogoConcluido = false;
+    *tempoRestanteFase = 240.0f;
+    inicioCicloPortoes = (float)GetTime();
+}
+
+static bool carregarFase(
+    int numeroFase,
+    InfoMapa *infoMapa,
+    Entregador *player,
+    Kit **kits,
+    int *totalKits,
+    int *kitsPendentes,
+    Zumbi **zumbis,
+    int *totalZumbis,
+    bool *gameOver,
+    bool *vitoriaFase,
+    bool *jogoConcluido,
+    float *tempoRestanteFase,
+    bool preservarProgresso
+) {
+    if (numeroFase < 1 || numeroFase > TOTAL_FASES) {
+        return false;
+    }
+
+    Mapa *mapaCarregado = carregarMapa(ARQUIVOS_FASES[numeroFase - 1]);
     if (!mapaCarregado) {
         for (int i = 0; i < HEIGHT; i++) {
             for (int j = 0; j < WIDTH; j++) {
@@ -250,69 +311,72 @@ int main(void){
         }
         liberarMapa(mapaCarregado);
     }
-    
-    InfoMapa infoMapa = processarMapa(mapa);
-    
+
+    *infoMapa = processarMapa(mapa);
+    reiniciarEntidadesDoMapa(
+        player, kits, totalKits, kitsPendentes,
+        zumbis, totalZumbis, gameOver, vitoriaFase, jogoConcluido,
+        tempoRestanteFase, preservarProgresso
+    );
+    return true;
+}
+
+int main(void) {
+    InfoMapa infoMapa = {0};
+    Entregador player = {0};
+    Kit *kits = NULL;
+    int totalKits = 0;
+    int kitsPendentes = 0;
+    Zumbi *zumbis = NULL;
+    int totalZumbis = 0;
+    bool gameOver = false;
+    bool vitoriaFase = false;
+    bool jogoConcluido = false;
+    bool bloqueadoEmS = false;
+    int faseAtual = 1;
+    float tempoRestanteFase = 240.0f;
+
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "RESIDENT EVIL");
     SetTargetFPS(60);
     InitAudioDevice();
     inicioCicloPortoes = (float)GetTime();
     SetRandomSeed((unsigned int)GetTime());
 
-    Entregador player;
-    Kit *kits = NULL;
-    int totalKits = 0;
-    inicializarPlayer(&player, mapa, &kits, &totalKits);
-    int kitsPendentes = totalKits;
-    Zumbi *zumbis = NULL;
-    int totalZumbis = 0;
-    inicializarZumbis(&zumbis, &totalZumbis, mapa);
-    bool gameOver = false;
-    float tempoRestanteFase = 240.0f;
+    carregarFase(
+        faseAtual, &infoMapa, &player, &kits, &totalKits, &kitsPendentes,
+        &zumbis, &totalZumbis, &gameOver, &vitoriaFase, &jogoConcluido,
+        &tempoRestanteFase, false
+    );
 
-    while(!WindowShouldClose()){
+    while (!WindowShouldClose()) {
         if (IsKeyPressed(KEY_F1) ||
             (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyDown(KEY_LEFT_SHIFT) && IsKeyPressed(KEY_ONE))) {
-            Mapa *novoMapa = carregarMapa("mapa1.txt");
-            if (novoMapa) {
-                for (int i = 0; i < HEIGHT; i++) {
-                    for (int j = 0; j < WIDTH; j++) {
-                        mapa[i][j] = novoMapa->celulas[i][j];
-                    }
-                }
-                liberarMapa(novoMapa);
-                infoMapa = processarMapa(mapa);
-                inicioCicloPortoes = (float)GetTime();
-            }
+            faseAtual = 1;
+            carregarFase(
+                faseAtual, &infoMapa, &player, &kits, &totalKits, &kitsPendentes,
+                &zumbis, &totalZumbis, &gameOver, &vitoriaFase, &jogoConcluido,
+                &tempoRestanteFase, false
+            );
         }
 
         if (IsKeyPressed(KEY_F2) ||
             (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyDown(KEY_LEFT_SHIFT) && IsKeyPressed(KEY_TWO))) {
-            Mapa *novoMapa = carregarMapa("mapa2.txt");
-            if (novoMapa) {
-                for (int i = 0; i < HEIGHT; i++) {
-                    for (int j = 0; j < WIDTH; j++) {
-                        mapa[i][j] = novoMapa->celulas[i][j];
-                    }
-                }
-                liberarMapa(novoMapa);
-                infoMapa = processarMapa(mapa);
-                inicioCicloPortoes = (float)GetTime();
-            }
+            faseAtual = 2;
+            carregarFase(
+                faseAtual, &infoMapa, &player, &kits, &totalKits, &kitsPendentes,
+                &zumbis, &totalZumbis, &gameOver, &vitoriaFase, &jogoConcluido,
+                &tempoRestanteFase, false
+            );
         }
+
         if (IsKeyPressed(KEY_F3) ||
             (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyDown(KEY_LEFT_SHIFT) && IsKeyPressed(KEY_THREE))) {
-            Mapa *novoMapa = carregarMapa("mapa3.txt");
-            if (novoMapa) {
-                for (int i = 0; i < HEIGHT; i++) {
-                    for (int j = 0; j < WIDTH; j++) {
-                        mapa[i][j] = novoMapa->celulas[i][j];
-                    }
-                }
-                liberarMapa(novoMapa);
-                infoMapa = processarMapa(mapa);
-                inicioCicloPortoes = (float)GetTime();
-            }
+            faseAtual = 3;
+            carregarFase(
+                faseAtual, &infoMapa, &player, &kits, &totalKits, &kitsPendentes,
+                &zumbis, &totalZumbis, &gameOver, &vitoriaFase, &jogoConcluido,
+                &tempoRestanteFase, false
+            );
         }
 
         atualizarPortoesPorTempo();
@@ -321,44 +385,118 @@ int main(void){
 
         float dt = GetFrameTime();
 
-        if (!gameOver && tempoRestanteFase > 0.0f) {
-            tempoRestanteFase -= dt;
-            if (tempoRestanteFase < 0.0f) {
-                tempoRestanteFase = 0.0f;
+        if (!gameOver && !vitoriaFase && !jogoConcluido) {
+            if (tempoRestanteFase > 0.0f) {
+                tempoRestanteFase -= dt;
+                if (tempoRestanteFase <= 0.0f) {
+                    tempoRestanteFase = 0.0f;
+                    gameOver = true;
+                }
             }
+
+            if (!gameOver) {
+                atualizarMovimentoPlayer(&player, mapa, portoesAbertos, dt);
+                atualizarZumbis(zumbis, totalZumbis, mapa, portoesAbertos, player.pos_atual, dt);
+                gameOver = verificarColisaoZumbis(&player, kits, zumbis, totalZumbis);
+                if (!gameOver) {
+                    interagirComMapa(&player, mapa, kits, totalKits, &kitsPendentes);
+
+                    bloqueadoEmS = false;
+                    if (mapa[player.pos_atual.linha][player.pos_atual.coluna] == 'S') {
+                        if (kitsPendentes <= 0 && player.topo < 0) {
+                            player.pontos += 100;
+                            if (faseAtual < TOTAL_FASES) {
+                                vitoriaFase = true;
+                            } else {
+                                jogoConcluido = true;
+                            }
+                        } else {
+                            bloqueadoEmS = true;
+                        }
+                    }
+                }
+            }
+        } else if (vitoriaFase && (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE))) {
+            faseAtual++;
+            carregarFase(
+                faseAtual, &infoMapa, &player, &kits, &totalKits, &kitsPendentes,
+                &zumbis, &totalZumbis, &gameOver, &vitoriaFase, &jogoConcluido,
+                &tempoRestanteFase, true
+            );
         }
 
-        if (!gameOver) {
-            atualizarMovimentoPlayer(&player, mapa, portoesAbertos, dt);
-            atualizarZumbis(zumbis, totalZumbis, mapa, portoesAbertos, player.pos_atual, dt);
-            gameOver = verificarColisaoZumbis(&player, kits, zumbis, totalZumbis);
-        if (!gameOver) {
-                    interagirComMapa(&player, mapa, kits, totalKits, &kitsPendentes);
-                }
-        }
         drawmapa(mapa, portoesAbertos);
         desenharPlayerEKits(&player, kits, totalKits, TILE, MAP_ORIGIN_X, MAP_ORIGIN_Y);
         desenharZumbis(zumbis, totalZumbis, TILE, MAP_ORIGIN_X, MAP_ORIGIN_Y);
 
-        // Descobre o texto da carga atual para mostrar no HUD
         char textoCarga[20] = "vazia";
         if (player.topo >= 0) {
-        int idTopo = player.pilha[player.topo];
-        sprintf(textoCarga, "topo: %c", kits[idTopo].tipo);
+            int idTopo = player.pilha[player.topo];
+            sprintf(textoCarga, "topo: %c", kits[idTopo].tipo);
         }
 
         if (gameOver) {
-        DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, (Color){0, 0, 0, 170});
-        DrawText("GAME OVER - Sem vidas!", SCREEN_WIDTH / 2 - 140, SCREEN_HEIGHT / 2 - 20, 24, RED);
-        DrawText("Pressione ESC para sair", SCREEN_WIDTH / 2 - 120, SCREEN_HEIGHT / 2 + 15, 16, RAYWHITE);
-    }   
+            const char *motivo = (tempoRestanteFase <= 0.0f)
+                ? "GAME OVER - Tempo esgotado!"
+                : "GAME OVER - Sem vidas!";
+            DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, (Color){0, 0, 0, 170});
+            DrawText(motivo, SCREEN_WIDTH / 2 - 155, SCREEN_HEIGHT / 2 - 20, 24, RED);
+            DrawText("Pressione ESC para sair", SCREEN_WIDTH / 2 - 120, SCREEN_HEIGHT / 2 + 15, 16, RAYWHITE);
+        }
+
+        if (bloqueadoEmS && !vitoriaFase && !jogoConcluido && !gameOver) {
+            DrawText(
+                "Entregue todos os kits antes de sair por S!",
+                MAP_ORIGIN_X + 10,
+                MAP_ORIGIN_Y + 10,
+                16,
+                YELLOW
+            );
+        }
+
+        if (vitoriaFase) {
+            DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, (Color){0, 0, 0, 175});
+            DrawText(
+                TextFormat("FASE %d CONCLUIDA!", faseAtual),
+                SCREEN_WIDTH / 2 - 135,
+                SCREEN_HEIGHT / 2 - 30,
+                26,
+                GREEN
+            );
+            DrawText(
+                "Pressione ENTER ou ESPACO para a proxima fase",
+                SCREEN_WIDTH / 2 - 210,
+                SCREEN_HEIGHT / 2 + 10,
+                16,
+                RAYWHITE
+            );
+        }
+
+        if (jogoConcluido) {
+            DrawRectangle(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, (Color){0, 0, 0, 185});
+            DrawText(
+                "TODAS AS FASES CONCLUIDAS!",
+                SCREEN_WIDTH / 2 - 180,
+                SCREEN_HEIGHT / 2 - 30,
+                26,
+                GOLD
+            );
+            DrawText(
+                TextFormat("Pontuacao final: %06d | ESC para sair", player.pontos),
+                SCREEN_WIDTH / 2 - 185,
+                SCREEN_HEIGHT / 2 + 10,
+                16,
+                RAYWHITE
+            );
+        }
+
         int minutos = (int)tempoRestanteFase / 60;
         int segundos = (int)tempoRestanteFase % 60;
-        
-        desenharHUD(player.vidas, player.pontos, 1, kitsPendentes, textoCarga,
-                player.topo + 1, 3, portoesAbertos ? 4 : 0, 4,
-                minutos, segundos);
-        
+
+        desenharHUD(player.vidas, player.pontos, faseAtual, kitsPendentes, textoCarga,
+                   player.topo + 1, 3, portoesAbertos ? 4 : 0, 4,
+                   minutos, segundos);
+
         DrawText(
             TextFormat("PORTAO D: %s (%.1fs)",
                        portoesAbertos ? "ABERTO" : "FECHADO",
@@ -370,7 +508,7 @@ int main(void){
         );
         EndDrawing();
     }
-    
+
     liberarKits(kits);
     liberarZumbis(zumbis);
     CloseWindow();
