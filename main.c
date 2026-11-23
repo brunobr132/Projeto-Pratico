@@ -44,8 +44,6 @@ typedef struct {
     bool encontrouPlayer;
 } InfoMapa;
 
-GameScreen telaAtual = INICIAL;
-
 const char initialmapa[HEIGHT][WIDTH] = {
     "########################################",
     "# P         a            b             #",
@@ -69,10 +67,6 @@ const char initialmapa[HEIGHT][WIDTH] = {
     "########################################"
 };
 
-char mapa[HEIGHT][WIDTH];
-bool portoesAbertos = false;
-float inicioCicloPortoes = 0.0f;
-
 static const char *ARQUIVOS_FASES[] = {
     "mapa1.txt",
     "mapa2.txt",
@@ -88,15 +82,13 @@ InfoMapa processarMapa(char mapa[HEIGHT][WIDTH]);
 void desenharTempo(int minutos, int segundos);
 void desenharNivel(int mapaAtual);
 
-float SPEED = 2.0f;
-
-void atualizarPortoesPorTempo(void) {
+static bool atualizarPortoesPorTempo(float inicioCicloPortoes) {
     const float ciclo = TEMPO_PORTAO_ABERTO + TEMPO_PORTAO_FECHADO;
     const float tempoNoCiclo = fmodf((float)(GetTime() - inicioCicloPortoes), ciclo);
-    portoesAbertos = tempoNoCiclo < TEMPO_PORTAO_ABERTO;
+    return tempoNoCiclo < TEMPO_PORTAO_ABERTO;
 }
 
-float tempoRestantePortoes(void) {
+static float tempoRestantePortoes(float inicioCicloPortoes, bool portoesAbertos) {
     const float ciclo = TEMPO_PORTAO_ABERTO + TEMPO_PORTAO_FECHADO;
     const float tempoNoCiclo = fmodf((float)(GetTime() - inicioCicloPortoes), ciclo);
 
@@ -238,6 +230,8 @@ void desenharHUD(
 }
 
 static void reiniciarEntidadesDoMapa(
+    char mapa[HEIGHT][WIDTH],
+    float *inicioCicloPortoes,
     Entregador *player,
     Kit **kits,
     int *totalKits,
@@ -274,11 +268,13 @@ static void reiniciarEntidadesDoMapa(
     *vitoriaFase = false;
     *jogoConcluido = false;
     *tempoRestanteFase = 240.0f;
-    inicioCicloPortoes = (float)GetTime();
+    *inicioCicloPortoes = (float)GetTime();
 }
 
 static bool carregarFase(
     int numeroFase,
+    char mapa[HEIGHT][WIDTH],
+    float *inicioCicloPortoes,
     InfoMapa *infoMapa,
     Entregador *player,
     Kit **kits,
@@ -314,6 +310,7 @@ static bool carregarFase(
 
     *infoMapa = processarMapa(mapa);
     reiniciarEntidadesDoMapa(
+        mapa, inicioCicloPortoes,
         player, kits, totalKits, kitsPendentes,
         zumbis, totalZumbis, gameOver, vitoriaFase, jogoConcluido,
         tempoRestanteFase, preservarProgresso
@@ -322,6 +319,14 @@ static bool carregarFase(
 }
 
 int main(void) {
+    GameScreen telaAtual = INICIAL;
+    char mapa[HEIGHT][WIDTH] = {0};
+    bool portoesAbertos = false;
+    float inicioCicloPortoes = 0.0f;
+    float SPEED = 2.0f;
+    (void)telaAtual;
+    (void)SPEED;
+
     InfoMapa infoMapa = {0};
     Entregador player = {0};
     Kit *kits = NULL;
@@ -343,7 +348,7 @@ int main(void) {
     SetRandomSeed((unsigned int)GetTime());
 
     carregarFase(
-        faseAtual, &infoMapa, &player, &kits, &totalKits, &kitsPendentes,
+        faseAtual, mapa, &inicioCicloPortoes, &infoMapa, &player, &kits, &totalKits, &kitsPendentes,
         &zumbis, &totalZumbis, &gameOver, &vitoriaFase, &jogoConcluido,
         &tempoRestanteFase, false
     );
@@ -353,7 +358,7 @@ int main(void) {
             (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyDown(KEY_LEFT_SHIFT) && IsKeyPressed(KEY_ONE))) {
             faseAtual = 1;
             carregarFase(
-                faseAtual, &infoMapa, &player, &kits, &totalKits, &kitsPendentes,
+                faseAtual, mapa, &inicioCicloPortoes, &infoMapa, &player, &kits, &totalKits, &kitsPendentes,
                 &zumbis, &totalZumbis, &gameOver, &vitoriaFase, &jogoConcluido,
                 &tempoRestanteFase, false
             );
@@ -363,7 +368,7 @@ int main(void) {
             (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyDown(KEY_LEFT_SHIFT) && IsKeyPressed(KEY_TWO))) {
             faseAtual = 2;
             carregarFase(
-                faseAtual, &infoMapa, &player, &kits, &totalKits, &kitsPendentes,
+                faseAtual, mapa, &inicioCicloPortoes, &infoMapa, &player, &kits, &totalKits, &kitsPendentes,
                 &zumbis, &totalZumbis, &gameOver, &vitoriaFase, &jogoConcluido,
                 &tempoRestanteFase, false
             );
@@ -373,13 +378,13 @@ int main(void) {
             (IsKeyDown(KEY_LEFT_CONTROL) && IsKeyDown(KEY_LEFT_SHIFT) && IsKeyPressed(KEY_THREE))) {
             faseAtual = 3;
             carregarFase(
-                faseAtual, &infoMapa, &player, &kits, &totalKits, &kitsPendentes,
+                faseAtual, mapa, &inicioCicloPortoes, &infoMapa, &player, &kits, &totalKits, &kitsPendentes,
                 &zumbis, &totalZumbis, &gameOver, &vitoriaFase, &jogoConcluido,
                 &tempoRestanteFase, false
             );
         }
 
-        atualizarPortoesPorTempo();
+        portoesAbertos = atualizarPortoesPorTempo(inicioCicloPortoes);
         BeginDrawing();
         ClearBackground(WHITE);
 
@@ -419,7 +424,7 @@ int main(void) {
         } else if (vitoriaFase && (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE))) {
             faseAtual++;
             carregarFase(
-                faseAtual, &infoMapa, &player, &kits, &totalKits, &kitsPendentes,
+                faseAtual, mapa, &inicioCicloPortoes, &infoMapa, &player, &kits, &totalKits, &kitsPendentes,
                 &zumbis, &totalZumbis, &gameOver, &vitoriaFase, &jogoConcluido,
                 &tempoRestanteFase, true
             );
@@ -500,7 +505,7 @@ int main(void) {
         DrawText(
             TextFormat("PORTAO D: %s (%.1fs)",
                        portoesAbertos ? "ABERTO" : "FECHADO",
-                       tempoRestantePortoes()),
+                       tempoRestantePortoes(inicioCicloPortoes, portoesAbertos)),
             10,
             GetScreenHeight() - HUD_HEIGHT - 20,
             12,

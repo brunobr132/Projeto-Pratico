@@ -32,8 +32,8 @@ Integração com o cronômetro da fase e condições de derrota: encerramento da
 
 Telas de feedback de progressão: overlays visuais para Fase Concluída (avançando com ENTER ou ESPAÇO) e Todas as Fases Concluídas (exibindo a pontuação final).
 
+Gerenciamento de estado sem variáveis globais mutáveis (main.c): o estado da partida (mapa, estado dos portões, ciclo de tempo e progressão de fase) passou a ser gerenciado localmente no main e repassado explicitamente às funções.
 
 ## Em Desenvolvimento / Próximos Passos
-
-Remoção de variáveis globais remanescentes e integração completa do fluxo de telas/menus com o restante do projeto.
+integração completa do fluxo de telas/menus com o restante do projeto.
 
