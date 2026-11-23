@@ -1,11 +1,8 @@
 # Projeto-Pratico
 # para compilar o arquivo 
-"gcc main.c mapa.c -o jogo.exe -lraylib -lwinmm -lgdi32 -lopengl32"
-e para rodar ele "./jogo"
-# e para compilar mais arquivos 
-tipo player.c ou zumbi.c adicionar entre o gcc e o -o
-exemplo "gcc main.c mapa.c player.c zumbi.c -o jogo.exe -lraylib -lwinmm -lgdi32 -lopengl32"
-# o menu.c seria para fazer as telas e os salvamento do jogo.
+"gcc main.c mapa.c player.c zumbi.c -o jogo.exe -lraylib -lwinmm -lgdi32 -lopengl32"
+e para rodar ele "./jogo.exe"
+ o menu.c seria para fazer as telas e os salvamento do jogo.
 
 # MAPA
 
@@ -29,6 +26,3 @@ Detecção de colisão (mesma célula ou cruzamento), aplicando penalidade de vi
 Condições de vitória na saída (`S`) após a entrega dos kits pendentes e controle de tempo limite da fase.
 Remoção de variáveis globais remanescentes e integração completa do fluxo de telas/menus com o restante do projeto.
 
-# para compilar o arquivo 
-"gcc main.c mapa.c player.c zumbi.c -o jogo.exe -lraylib -lwinmm -lgdi32 -lopengl32"
-e para rodar ele "./jogo.exe"
